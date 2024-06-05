@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with LLM</title>
+
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" integrity="sha384-JjrtQbaKv5R+I5Wdza0MJ6jkItE0t8xflb6W1f9Pp4xI6UqOOibBjxprS9M1zDWr" crossorigin="anonymous">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .navbar {
+            background-color: #343a40;
+        }
+
+        .navbar-brand {
+            color: #fff;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .chat-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+
+        .chatbox-body {
+            padding: 10px;
+            height: 600px;
+            overflow-y: scroll;
+        }
+
+        .message {
+            margin-bottom: 10px;
+        }
+
+        .user-message, .bot-message {
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: #fff;
+            float: right;
+        }
+
+        .bot-message {
+            background-color: #f8f9fa;
+            color: #000;
+            float: left;
+        }
+
+        .input-container {
+            padding: 10px;
+            border-top: 1px solid #ccc;
+        }
+
+        input {
+            width: calc(100% - 16px);
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 15px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .back-btn {
+            background-color: #6c757d;
+            color: #fff;
+            border-radius: 15px;
+            padding: 15px;
+            font-size: 1.2rem;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .back-btn:hover {
+            background-color: #5a6268;
+        }
+
+        /* Login/Register Form Styles */
+        .auth-form {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .auth-form button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .auth-form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+
+    <!-- Define csrf_token -->
+    <script>
+        const csrf_token = "{{ csrf_token }}";
+    </script>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand">Chat Room</a>
+            {% if user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}" class="d-flex">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-primary">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-sm btn-primary">Login</a>
+                <a href="{% url 'register' %}" class="btn btn-sm btn-primary">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+    
+
+
+
+<!-- Content -->
+<div class="container mt-4">
+    {% if user.is_authenticated %}
+        <p>Logged in as: {{ user }}</p>
+        <div class="chat-container">
+            <div class="chatbox-body" id="chatbox-body">
+                <!-- Display chat history with user names -->
+                {% for message in history %}
+                    <div class="message {% if message.user is None %}bot-message{% else %}user-message{% endif %}">
+                        {% if message.user is None %}
+                            Bot: {{ message.message }}
+                        {% else %}
+                            {{ message.user.username }}: {{ message.message }}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<div class="input-container">
+    <input type="text" id="user-input" placeholder="Type your message...">
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="deleteChat()">Delete Chat</button>
+    <a href="{% url 'index' %}" class="btn btn-lg btn-primary back-btn">Back Home</a>
+</div>
+
+<div id="bot-response"></div>
+<div id="similarity-score"></div>
+
+<script>
+    function sendMessage() {
+        var userInput = document.getElementById('user-input').value;
+        var chatboxBody = document.getElementById('chatbox-body');
+    
+        // Display user message
+        var userMessage = document.createElement('div');
+        userMessage.className = 'message user-message';
+        userMessage.textContent = userInput;
+        chatboxBody.appendChild(userMessage);
+    
+        // Send user message to server for processing
+        fetch('{% url 'chat' %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrf_token,
+            },
+            body: 'query=' + encodeURIComponent(userInput),
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Display SpaCy response
+            var spacyMessage = document.createElement('div');
+            spacyMessage.className = 'message spacy-message';  // Add a new class for styling
+            spacyMessage.textContent = 'SpaCy: ' + data.spacy_response;
+            chatboxBody.appendChild(spacyMessage);
+    
+            // Display bot response
+            var botMessage = document.createElement('div');
+            botMessage.className = 'message bot-message';
+            botMessage.textContent = 'Bot: ' + data.bot_response;
+            chatboxBody.appendChild(botMessage);
+    
+            // Display similarity score
+            var similarityScore = document.createElement('div');
+            similarityScore.textContent = 'Similarity Score: ' + data.similarity_score;
+            chatboxBody.appendChild(similarityScore);
+    
+            // Clear input field
+            document.getElementById('user-input').value = '';
+    
+            // Scroll to the bottom of the chatbox
+            chatboxBody.scrollTop = chatboxBody.scrollHeight;
+        })
+        .catch(error => console.error('Error:', error));
+    }
+    
+
+    function deleteChat() {
+        fetch('{% url 'delete_chat_history' %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf_token,
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear chatbox body
+                var chatboxBody = document.getElementById('chatbox-body');
+                chatboxBody.innerHTML = '';
+            } else {
+                console.error('Failed to delete chat history');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+</script>
+</script>
+
+</body>
+
+</html>
