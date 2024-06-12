@@ -12,37 +12,13 @@ from . import config
 import openai
 import time
 import spacy
-from fuzzywuzzy import fuzz
-
-
 
 # Initialize SpaCy with English language model
 nlp = spacy.load('en_core_web_sm')
 
 openai.api_key = config.OPENAI_API_KEY
 
-
-
-# Define the display_history function
-def display_history(user):
-    # Retrieve chat history for the user, including bot messages (where user is None)
-    history = ChatMessage.objects.filter(user=user) | ChatMessage.objects.filter(user=None)
-    return history
-
-
-def compare_responses(user_input):
-    # Call SpaCy API to process user input
-    spacy_response = process_with_spacy(user_input)
-
-    # Call OpenAI API to process user input
-    openai_response = process_with_openai(user_input)
-
-    # Compare responses
-    similarity_score = calculate_similarity(spacy_response, openai_response)
-
-    return spacy_response, openai_response, similarity_score
-
-
+# Knowledge base for SpaCy processing
 knowledge_base = {
     "author": "J. K. Rowling",
     "characters": ["Harry Potter", "Hermione Granger", "Ron Weasley"],
@@ -55,6 +31,11 @@ knowledge_base = {
     "genres": ["fantasy", "drama", "coming-of-age fiction", "British school story"],
     "themes": ["prejudice", "corruption", "madness", "death"]
 }
+
+def display_history(user):
+    # Retrieve chat history for the user, including bot messages (where user is None)
+    history = ChatMessage.objects.filter(user=user) | ChatMessage.objects.filter(user=None)
+    return history
 
 def process_with_spacy(user_input):
     doc = nlp(user_input)
@@ -73,11 +54,6 @@ def process_with_spacy(user_input):
         elif token.dep_ == "dobj":
             # Handle cases where the object consists of multiple tokens
             obj = " ".join([t.text for t in token.subtree])
-
-    # Debugging: Print extracted subject, predicate, and object
-    print("Subject:", subject)
-    print("Predicate:", predicate)
-    print("Object:", obj)
 
     # Check if the user input is a question about the author of a book
     if doc[0].text.lower() in ["who", "what"] and predicate.lower() in ["write", "wrote"] and obj:
@@ -118,15 +94,6 @@ def process_with_spacy(user_input):
 
     return response
 
-
-
-def calculate_similarity(response1, response2):
-    # Calculate similarity between the two responses
-    similarity_score = fuzz.ratio(response1.lower(), response2.lower())
-    return similarity_score
-
-
-
 @login_required
 def delete_chat_history(request):
     if request.method == 'POST':
@@ -135,24 +102,6 @@ def delete_chat_history(request):
         return JsonResponse({'success': True})
     else:
         return JsonResponse({'success': False})
-
-
-def process_user_input(user_input):
-    """Process user input with the trained SpaCy model.
-
-    Args:
-        user_input (str): The user's input text.
-
-    Returns:
-        str: The extracted author name, if found.
-    """
-    doc = nlp(user_input)
-    for ent in doc.ents:
-        if ent.label_ == "PERSON":
-            return ent.text
-    return None
-
-
 
 @login_required(login_url='login')
 def chat(request):
@@ -163,71 +112,60 @@ def chat(request):
         # Save the user's message to the database
         user_message = ChatMessage.objects.create(user_id=current_user.id, message=query)
 
-        start_time_spacy = time.time()  # Measure start time for SpaCy processing
+        # Measure start time for SpaCy processing
+        start_time_spacy = time.time()
         
         # Process user input with SpaCy
         spacy_response = process_with_spacy(query)
         
-        # Print the SpaCy response
-        print("SpaCy Response:", spacy_response)
+        # Measure end time for SpaCy processing
+        end_time_spacy = time.time()
+        spacy_response_time = end_time_spacy - start_time_spacy  # Calculate time taken for SpaCy
 
-        end_time_spacy = time.time()  # Measure end time for SpaCy processing
-        spacy_response_time = end_time_spacy - start_time_spacy  # Calculate time taken
+        # Measure start time for OpenAI processing
+        start_time_openai = time.time()
         
         # Call OpenAI API to generate response
         openai_response = process_with_openai(query)
         
-        similarity_score = calculate_similarity(spacy_response, openai_response)
+        # Measure end time for OpenAI processing
+        end_time_openai = time.time()
+        openai_response_time = end_time_openai - start_time_openai  # Calculate time taken for OpenAI
 
-        service_context = ServiceContext.from_defaults(llm=OpenAI(model="gpt-3.5-turbo-instruct", temperature=0.8, system_prompt="You are a machine learning engineer and your job is to answer technical questions."))
-
-        reader = SimpleDirectoryReader(input_dir='./data', recursive=True)
-        docs = reader.load_data()
-
-        index = VectorStoreIndex.from_documents(docs, service_context=service_context)
-
-        chat_engine = index.as_chat_engine(chat_mode="condense_question", verbose=True)
-        response = chat_engine.chat(query)
-
-        end_time = time.time()
+        # Calculate total response time
+        total_response_time = time.time() - start_time_spacy
 
         # Get the 'Bot' user object
         bot_user = User.objects.get(username='Bot')  # Assuming 'Bot' is a valid username for the bot user
 
         # Save the bot's response to the database with the bot user
-        bot_response = ChatMessage.objects.create(user_id=bot_user.id, message=f"{response.response}")
+        bot_response = ChatMessage.objects.create(user_id=bot_user.id, message=f"{openai_response}")
 
-        response_time = end_time - start_time_spacy  # Calculate total response time
-        print(f"Time taken for SpaCy response: {spacy_response_time} seconds")  # Print SpaCy response time
-        print(f"Time taken for GPT-3.5 Turbo response: {response_time} seconds")  # Print total response time
-        
         return JsonResponse({
             'bot_response': bot_response.message, 
             'spacy_response': spacy_response,  # Include SpaCy response in the JSON data
-            'response_time': response_time, 
+            'spacy_response_time': spacy_response_time,
+            'openai_response_time': openai_response_time,
+            'total_response_time': total_response_time, 
             'current_user': current_user.username,
-            'similarity_score': similarity_score  # Include similarity score in the JSON data
         })
 
-    return render(request, 'chat.html', {'bot_response': '', 'history': display_history(request.user.id), 'current_user': request.user})
+    return render(request, 'chat.html', {
+        'bot_response': '', 
+        'history': display_history(request.user.id), 
+        'current_user': request.user
+    })
 
 def process_with_openai(user_input):
-    # Call the OpenAI API to generate a response based on the user input
-    # You can use the OpenAI Python SDK or make HTTP requests directly
-    # For example:
     response = openai.Completion.create(
         engine="gpt-3.5-turbo-instruct",
         prompt=user_input,
         max_tokens=50
-     )
+    )
     return response.choices[0].text.strip()
-
-    # For now, let's just return a placeholder response
-    # return "This is a placeholder response from OpenAI."
 
 def index(request):
     return render(request, 'index.html')
-
 
 def login_view(request):
     if request.method == 'POST':
@@ -247,7 +185,6 @@ def login_view(request):
 
     return render(request, 'login.html', {'form': form})
 
-
 def register_view(request):
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
@@ -260,10 +197,6 @@ def register_view(request):
                 # Create a new user
                 user = User.objects.create_user(username=username, password=password)
                 
-                # Additional actions if needed
-                # For example, you might want to log the user in after registration
-                # login(request, user)
-                
                 messages.success(request, 'Registration successful. Please log in.')
                 return redirect('login')
             else:
@@ -272,7 +205,6 @@ def register_view(request):
         form = RegistrationForm()
 
     return render(request, 'register.html', {'form': form})
-
 
 def logout_view(request):
     logout(request)

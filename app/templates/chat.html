@@ -43,7 +43,7 @@
             margin-bottom: 10px;
         }
 
-        .user-message, .bot-message {
+        .user-message, .bot-message, .spacy-message {
             padding: 15px;
             border-radius: 15px;
             margin-bottom: 15px;
@@ -57,7 +57,7 @@
             float: right;
         }
 
-        .bot-message {
+        .bot-message, .spacy-message {
             background-color: #f8f9fa;
             color: #000;
             float: left;
@@ -161,113 +161,112 @@
             {% endif %}
         </div>
     </nav>
-    
 
-
-
-<!-- Content -->
-<div class="container mt-4">
-    {% if user.is_authenticated %}
-        <p>Logged in as: {{ user }}</p>
-        <div class="chat-container">
-            <div class="chatbox-body" id="chatbox-body">
-                <!-- Display chat history with user names -->
-                {% for message in history %}
-                    <div class="message {% if message.user is None %}bot-message{% else %}user-message{% endif %}">
-                        {% if message.user is None %}
-                            Bot: {{ message.message }}
-                        {% else %}
-                            {{ message.user.username }}: {{ message.message }}
-                        {% endif %}
-                    </div>
-                {% endfor %}
+    <!-- Content -->
+    <div class="container mt-4">
+        {% if user.is_authenticated %}
+            <p>Logged in as: {{ user }}</p>
+            <div class="chat-container">
+                <div class="chatbox-body" id="chatbox-body">
+                    <!-- Display chat history with user names -->
+                    {% for message in history %}
+                        <div class="message {% if message.user is None %}bot-message{% else %}user-message{% endif %}">
+                            {% if message.user is None %}
+                                Bot: {{ message.message }}
+                            {% else %}
+                                {{ message.user.username }}: {{ message.message }}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
             </div>
-        </div>
-    {% endif %}
-</div>
+        {% endif %}
+    </div>
 
-<div class="input-container">
-    <input type="text" id="user-input" placeholder="Type your message...">
-    <button onclick="sendMessage()">Send</button>
-    <button onclick="deleteChat()">Delete Chat</button>
-    <a href="{% url 'index' %}" class="btn btn-lg btn-primary back-btn">Back Home</a>
-</div>
+    <div class="input-container">
+        <input type="text" id="user-input" placeholder="Type your message...">
+        <button onclick="sendMessage()">Send</button>
+        <button onclick="deleteChat()">Delete Chat</button>
+        <a href="{% url 'index' %}" class="btn btn-lg btn-primary back-btn">Back Home</a>
+    </div>
 
-<div id="bot-response"></div>
-<div id="similarity-score"></div>
+    <div id="bot-response"></div>
+    <div id="response-times">
+        <p>SpaCy Response Time: <span id="spacy-response-time"></span> seconds</p>
+        <p>OpenAI Response Time: <span id="openai-response-time"></span> seconds</p>
+        <p>Total Response Time: <span id="total-response-time"></span> seconds</p>
+    </div>
 
-<script>
-    function sendMessage() {
-        var userInput = document.getElementById('user-input').value;
-        var chatboxBody = document.getElementById('chatbox-body');
-    
-        // Display user message
-        var userMessage = document.createElement('div');
-        userMessage.className = 'message user-message';
-        userMessage.textContent = userInput;
-        chatboxBody.appendChild(userMessage);
-    
-        // Send user message to server for processing
-        fetch('{% url 'chat' %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrf_token,
-            },
-            body: 'query=' + encodeURIComponent(userInput),
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Display SpaCy response
-            var spacyMessage = document.createElement('div');
-            spacyMessage.className = 'message spacy-message';  // Add a new class for styling
-            spacyMessage.textContent = 'SpaCy: ' + data.spacy_response;
-            chatboxBody.appendChild(spacyMessage);
-    
-            // Display bot response
-            var botMessage = document.createElement('div');
-            botMessage.className = 'message bot-message';
-            botMessage.textContent = 'Bot: ' + data.bot_response;
-            chatboxBody.appendChild(botMessage);
-    
-            // Display similarity score
-            var similarityScore = document.createElement('div');
-            similarityScore.textContent = 'Similarity Score: ' + data.similarity_score;
-            chatboxBody.appendChild(similarityScore);
-    
-            // Clear input field
-            document.getElementById('user-input').value = '';
-    
-            // Scroll to the bottom of the chatbox
-            chatboxBody.scrollTop = chatboxBody.scrollHeight;
-        })
-        .catch(error => console.error('Error:', error));
-    }
-    
+    <script>
+        function sendMessage() {
+            var userInput = document.getElementById('user-input').value;
+            var chatboxBody = document.getElementById('chatbox-body');
+        
+            // Display user message
+            var userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = userInput;
+            chatboxBody.appendChild(userMessage);
+        
+            // Send user message to server for processing
+            fetch('{% url 'chat' %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrf_token,
+                },
+                body: 'query=' + encodeURIComponent(userInput),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display SpaCy response
+                var spacyMessage = document.createElement('div');
+                spacyMessage.className = 'message spacy-message';  // Add a new class for styling
+                spacyMessage.textContent = 'SpaCy: ' + data.spacy_response;
+                chatboxBody.appendChild(spacyMessage);
+        
+                // Display bot response
+                var botMessage = document.createElement('div');
+                botMessage.className = 'message bot-message';
+                botMessage.textContent = 'Bot: ' + data.bot_response;
+                chatboxBody.appendChild(botMessage);
+        
+                // Display response times
+                document.getElementById('spacy-response-time').innerText = data.spacy_response_time;
+                document.getElementById('openai-response-time').innerText = data.openai_response_time;
+                document.getElementById('total-response-time').innerText = data.total_response_time;
+        
+                // Clear input field
+                document.getElementById('user-input').value = '';
+        
+                // Scroll to the bottom of the chatbox
+                chatboxBody.scrollTop = chatboxBody.scrollHeight;
+            })
+            .catch(error => console.error('Error:', error));
+        }
+        
 
-    function deleteChat() {
-        fetch('{% url 'delete_chat_history' %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrf_token,
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Clear chatbox body
-                var chatboxBody = document.getElementById('chatbox-body');
-                chatboxBody.innerHTML = '';
-            } else {
-                console.error('Failed to delete chat history');
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    }
-</script>
-</script>
+        function deleteChat() {
+            fetch('{% url 'delete_chat_history' %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrf_token,
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Clear chatbox body
+                    var chatboxBody = document.getElementById('chatbox-body');
+                    chatboxBody.innerHTML = '';
+                } else {
+                    console.error('Failed to delete chat history');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
 
 </body>
-
 </html>
