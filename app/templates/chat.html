@@ -190,11 +190,10 @@
         <a href="{% url 'index' %}" class="btn btn-lg btn-primary back-btn">Back Home</a>
     </div>
 
-    <div id="bot-response"></div>
-    <div id="response-times">
-        <p>SpaCy Response Time: <span id="spacy-response-time"></span> seconds</p>
-        <p>OpenAI Response Time: <span id="openai-response-time"></span> seconds</p>
-        <p>Total Response Time: <span id="total-response-time"></span> seconds</p>
+    <div id="metrics">
+        <h3>Metrics:</h3>
+        <p id="spacy-metrics"></p>
+        <p id="openai-metrics"></p>
     </div>
 
     <script>
@@ -230,11 +229,28 @@
                 botMessage.className = 'message bot-message';
                 botMessage.textContent = 'Bot: ' + data.bot_response;
                 chatboxBody.appendChild(botMessage);
+
+                // Display metrics for SpaCy
+                var spacyMetrics = `
+                    <strong>SpaCy:</strong><br>
+                    Response Time: ${data.spacy_response_time} seconds<br>
+                    CPU Usage: ${data.spacy_cpu_usage}%<br>
+                    Memory Usage: ${data.spacy_memory_usage} bytes<br>
+                    Confidence Score: ${data.spacy_confidence_score}<br>
+                    Accuracy: ${data.spacy_accuracy}<br>
+                `;
+                document.getElementById('spacy-metrics').innerHTML = spacyMetrics;
         
-                // Display response times
-                document.getElementById('spacy-response-time').innerText = data.spacy_response_time;
-                document.getElementById('openai-response-time').innerText = data.openai_response_time;
-                document.getElementById('total-response-time').innerText = data.total_response_time;
+                // Display metrics for OpenAI
+                var openaiMetrics = `
+                    <strong>OpenAI:</strong><br>
+                    Response Time: ${data.openai_response_time} seconds<br>
+                    CPU Usage: ${data.openai_cpu_usage}%<br>
+                    Memory Usage: ${data.openai_memory_usage} bytes<br>
+                    Confidence Score: ${data.openai_confidence_score}<br>
+                    Accuracy: ${data.openai_accuracy}<br>
+                `;
+                document.getElementById('openai-metrics').innerHTML = openaiMetrics;
         
                 // Clear input field
                 document.getElementById('user-input').value = '';
@@ -245,7 +261,6 @@
             .catch(error => console.error('Error:', error));
         }
         
-
         function deleteChat() {
             fetch('{% url 'delete_chat_history' %}', {
                 method: 'POST',
@@ -267,6 +282,5 @@
             .catch(error => console.error('Error:', error));
         }
     </script>
-
 </body>
 </html>

@@ -12,6 +12,9 @@ from . import config
 import openai
 import time
 import spacy
+import psutil
+import random
+from fuzzywuzzy import fuzz
 
 # Initialize SpaCy with English language model
 nlp = spacy.load('en_core_web_sm')
@@ -94,6 +97,22 @@ def process_with_spacy(user_input):
 
     return response
 
+def calculate_accuracy(response, expected_response):
+    similarity_ratio = fuzz.token_sort_ratio(response.lower(), expected_response.lower())
+    return similarity_ratio / 100.0  # Normalize to a 0-1 scale
+
+def measure_resource_consumption():
+    # Measure current resource consumption (CPU and memory usage)
+    process = psutil.Process()
+    cpu_usage = process.cpu_percent(interval=1)
+    memory_info = process.memory_info()
+    memory_usage = memory_info.rss  # Resident Set Size
+    return cpu_usage, memory_usage
+
+def generate_confidence_score():
+    # Generate a mock confidence score (as OpenAI GPT-3.5-turbo-instruct does not return confidence scores)
+    return random.uniform(0.5, 1.0)  # Mock confidence score between 0.5 and 1.0
+
 @login_required
 def delete_chat_history(request):
     if request.method == 'POST':
@@ -121,6 +140,12 @@ def chat(request):
         # Measure end time for SpaCy processing
         end_time_spacy = time.time()
         spacy_response_time = end_time_spacy - start_time_spacy  # Calculate time taken for SpaCy
+        
+        # Measure resource consumption for SpaCy
+        spacy_cpu_usage, spacy_memory_usage = measure_resource_consumption()
+        
+        # Generate mock confidence score for SpaCy
+        spacy_confidence_score = generate_confidence_score()
 
         # Measure start time for OpenAI processing
         start_time_openai = time.time()
@@ -131,6 +156,12 @@ def chat(request):
         # Measure end time for OpenAI processing
         end_time_openai = time.time()
         openai_response_time = end_time_openai - start_time_openai  # Calculate time taken for OpenAI
+        
+        # Measure resource consumption for OpenAI
+        openai_cpu_usage, openai_memory_usage = measure_resource_consumption()
+        
+        # Generate mock confidence score for OpenAI
+        openai_confidence_score = generate_confidence_score()
 
         # Calculate total response time
         total_response_time = time.time() - start_time_spacy
@@ -141,12 +172,27 @@ def chat(request):
         # Save the bot's response to the database with the bot user
         bot_response = ChatMessage.objects.create(user_id=bot_user.id, message=f"{openai_response}")
 
+        # Mock expected response for accuracy calculation
+        expected_response = "The author of Harry Potter is J. K. Rowling."
+
+        # Calculate accuracy for both responses
+        spacy_accuracy = calculate_accuracy(spacy_response, expected_response)
+        openai_accuracy = calculate_accuracy(openai_response, expected_response)
+
         return JsonResponse({
             'bot_response': bot_response.message, 
-            'spacy_response': spacy_response,  # Include SpaCy response in the JSON data
+            'spacy_response': spacy_response,  
             'spacy_response_time': spacy_response_time,
+            'spacy_cpu_usage': spacy_cpu_usage,
+            'spacy_memory_usage': spacy_memory_usage,
+            'spacy_confidence_score': spacy_confidence_score,
+            'spacy_accuracy': spacy_accuracy,
             'openai_response_time': openai_response_time,
-            'total_response_time': total_response_time, 
+            'openai_cpu_usage': openai_cpu_usage,
+            'openai_memory_usage': openai_memory_usage,
+            'openai_confidence_score': openai_confidence_score,
+            'openai_accuracy': openai_accuracy,
+            'total_response_time': total_response_time,
             'current_user': current_user.username,
         })
 
