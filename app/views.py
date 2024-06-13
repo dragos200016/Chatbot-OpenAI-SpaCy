@@ -206,7 +206,7 @@ def process_with_openai(user_input):
     response = openai.Completion.create(
         engine="gpt-3.5-turbo-instruct",
         prompt=user_input,
-        max_tokens=50
+        max_tokens=100
     )
     return response.choices[0].text.strip()
 
