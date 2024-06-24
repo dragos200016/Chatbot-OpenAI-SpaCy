@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat with LLM</title>
-
-    <!-- Include Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" integrity="sha384-JjrtQbaKv5R+I5Wdza0MJ6jkItE0t8xflb6W1f9Pp4xI6UqOOibBjxprS9M1zDWr" crossorigin="anonymous">
 
     <style>
@@ -139,14 +137,12 @@
         }
     </style>
 
-    <!-- Define csrf_token -->
     <script>
         const csrf_token = "{{ csrf_token }}";
     </script>
 </head>
 <body>
 
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand">Chat Room</a>
@@ -162,13 +158,11 @@
         </div>
     </nav>
 
-    <!-- Content -->
     <div class="container mt-4">
         {% if user.is_authenticated %}
             <p>Logged in as: {{ user }}</p>
             <div class="chat-container">
                 <div class="chatbox-body" id="chatbox-body">
-                    <!-- Display chat history with user names -->
                     {% for message in history %}
                         <div class="message {% if message.user is None %}bot-message{% else %}user-message{% endif %}">
                             {% if message.user is None %}
@@ -201,13 +195,13 @@
             var userInput = document.getElementById('user-input').value;
             var chatboxBody = document.getElementById('chatbox-body');
         
-            // Display user message
+
             var userMessage = document.createElement('div');
             userMessage.className = 'message user-message';
             userMessage.textContent = userInput;
             chatboxBody.appendChild(userMessage);
         
-            // Send user message to server for processing
+
             fetch('{% url 'chat' %}', {
                 method: 'POST',
                 headers: {
@@ -218,19 +212,18 @@
             })
             .then(response => response.json())
             .then(data => {
-                // Display SpaCy response
+                
                 var spacyMessage = document.createElement('div');
-                spacyMessage.className = 'message spacy-message';  // Add a new class for styling
+                spacyMessage.className = 'message spacy-message';  
                 spacyMessage.textContent = 'SpaCy: ' + data.spacy_response;
                 chatboxBody.appendChild(spacyMessage);
         
-                // Display bot response
                 var botMessage = document.createElement('div');
                 botMessage.className = 'message bot-message';
                 botMessage.textContent = 'Bot: ' + data.bot_response;
                 chatboxBody.appendChild(botMessage);
 
-                // Display metrics for SpaCy
+               
                 var spacyMetrics = `
                     <strong>SpaCy:</strong><br>
                     Response Time: ${data.spacy_response_time} seconds<br>
@@ -241,7 +234,7 @@
                 `;
                 document.getElementById('spacy-metrics').innerHTML = spacyMetrics;
         
-                // Display metrics for OpenAI
+                
                 var openaiMetrics = `
                     <strong>OpenAI:</strong><br>
                     Response Time: ${data.openai_response_time} seconds<br>
@@ -252,10 +245,10 @@
                 `;
                 document.getElementById('openai-metrics').innerHTML = openaiMetrics;
         
-                // Clear input field
+                
                 document.getElementById('user-input').value = '';
         
-                // Scroll to the bottom of the chatbox
+                
                 chatboxBody.scrollTop = chatboxBody.scrollHeight;
             })
             .catch(error => console.error('Error:', error));
@@ -272,7 +265,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Clear chatbox body
+                
                     var chatboxBody = document.getElementById('chatbox-body');
                     chatboxBody.innerHTML = '';
                 } else {

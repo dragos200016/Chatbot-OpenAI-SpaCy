@@ -11,7 +11,6 @@ import openai
 import time
 import spacy
 import psutil
-import random
 from fuzzywuzzy import fuzz
 
 

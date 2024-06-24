@@ -1,3 +1,7 @@
 # config.py
+from dotenv import load_dotenv
+import os
 
-OPENAI_API_KEY = "sk-proj-9QONMunq024lvZxX5EYqT3BlbkFJqVsGj8KTFX4ZMYFuZDRK"
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
